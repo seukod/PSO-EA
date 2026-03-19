@@ -6,8 +6,8 @@ int puntos = 100;
 Particle[] fl; // arreglo de partículas
 float d = 15; // radio del círculo, solo para despliegue
 float gbestx, gbesty, gbest = Float.MAX_VALUE; // posición y fitness del mejor global
-float w = 10; // inercia: baja (~50): explotación, alta (~5000): exploración (2000 ok)
-float C1 = 30, C2 =  30; // learning factors (C1: own, C2: social) (ok)
+float w = 3000; //inercia: baja (~50): explotación, alta (~5000): exploración (2000 ok)
+float C1 = 30, C2 = 10; // learning factors (C1: own, C2: social) (ok)
 int evals = 0, evals_to_best = 0; //número de evaluaciones, sólo para despliegue
 float maxv = 3; // max velocidad (modulo)
 float time = 0; //tiempo en el que el algoritmo encuentra el minimo
@@ -120,14 +120,14 @@ class Particle{
   
   void move(){
     //actualiza velocidad (fórmula con factores de aprendizaje C1 y C2)
-    vx = vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
-    vy = vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
+    //vx = vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
+    //vy = vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
     //actualiza velocidad (fórmula con inercia, p.250)
     //vx = w * vx + random(0,1)*(px - x) + random(0,1)*(gbestx - x);
     //vy = w * vy + random(0,1)*(py - y) + random(0,1)*(gbesty - y);
     //actualiza velocidad (fórmula mezclada)
-    //vx = w * vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
-    //vy = w * vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
+    vx = w * vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
+    vy = w * vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
     // trunca velocidad a maxv
     float modu = sqrt(vx*vx + vy*vy);
     if (modu > maxv){
@@ -188,8 +188,8 @@ void setup() {
   }
 
   // 2. Calcular el número correlativo (pso_1, pso_2...)
-  int siguienteNumero = obtenerSiguienteNumero(sketchPath(carpeta));
-  nombreArchivo = carpeta + "pso_" + siguienteNumero + ".csv";
+  int num = obtenerSiguienteNumero(sketchPath(carpeta));
+  nombreArchivo = carpeta + "pso_" + num + ".csv";
   println("El archivo se guardará como: " + nombreArchivo);
 
   // 3. Creación de tabla para exportar datos
