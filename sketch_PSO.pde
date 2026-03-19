@@ -6,13 +6,19 @@ int puntos = 100;
 Particle[] fl; // arreglo de partículas
 float d = 15; // radio del círculo, solo para despliegue
 float gbestx, gbesty, gbest = Float.MAX_VALUE; // posición y fitness del mejor global
-float w = 10; // inercia: baja (~50): explotación, alta (~5000): exploración (2000 ok)
-float C1 = 30, C2 =  30; // learning factors (C1: own, C2: social) (ok)
+float w = 3000; //inercia: baja (~50): explotación, alta (~5000): exploración (2000 ok)
+float C1 = 30, C2 = 10; // learning factors (C1: own, C2: social) (ok)
 int evals = 0, evals_to_best = 0; //número de evaluaciones, sólo para despliegue
 float maxv = 3; // max velocidad (modulo)
 float time = 0; //tiempo en el que el algoritmo encuentra el minimo
+// variables para el temporizador
+long startTime; // Tiempo de inicio 
+float timeToBest = 0; // Tiempo en el que se encontró el mejor actual
 
 int iteracion = 0;
+//Almacenamiento csv
+String nombreArchivo;
+String carpeta = "registros/";
 
 // ===============================================================
 // Tabla de exportación de datos
@@ -29,6 +35,7 @@ void InitTable(){
    table.addColumn("C2");
    table.addColumn("evals");
    table.addColumn("evals to best");
+   table.addColumn("tiempo_al_mejor");
 
 }
 void guardarDatos(){
@@ -38,6 +45,8 @@ void guardarDatos(){
   fila.setFloat("fitness", gbest);
   fila.setFloat("gbestx", gbestx);
   fila.setFloat("gbesty", gbesty);
+  
+  fila.setFloat("tiempo_al_mejor", timeToBest);
 
   fila.setInt("puntos", puntos);
   fila.setFloat("inercia", w);
@@ -50,8 +59,8 @@ void guardarDatos(){
   iteracion++;
 }
 void keyPressed(){
-  saveTable(table, "datos_pso.csv");
-  println("datos guardados");
+  saveTable(table, nombreArchivo);
+  println("Datos guardados en: " + nombreArchivo);
 }
 
 
@@ -101,21 +110,24 @@ class Particle{
       gbestx = x;
       gbesty = y;
       evals_to_best = evals;
-      println("Nuevo Global Best: " + str(gbest));
+      
+      timeToBest = (millis() - startTime) / 1000.0;// Calcula el tiempo solo cuando hay un récord real
+      println("Nuevo Global Best: " + gbest + " a los " + timeToBest + "s");
     }
+    
     return fit; 
   }
   
   void move(){
     //actualiza velocidad (fórmula con factores de aprendizaje C1 y C2)
-    vx = vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
-    vy = vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
+    //vx = vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
+    //vy = vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
     //actualiza velocidad (fórmula con inercia, p.250)
     //vx = w * vx + random(0,1)*(px - x) + random(0,1)*(gbestx - x);
     //vy = w * vy + random(0,1)*(py - y) + random(0,1)*(gbesty - y);
     //actualiza velocidad (fórmula mezclada)
-    //vx = w * vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
-    //vy = w * vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
+    vx = w * vx + random(0,1)*C1*(px - x) + random(0,1)*C2*(gbestx - x);
+    vy = w * vy + random(0,1)*C1*(py - y) + random(0,1)*C2*(gbesty - y);
     // trunca velocidad a maxv
     float modu = sqrt(vx*vx + vy*vy);
     if (modu > maxv){
@@ -146,38 +158,64 @@ void despliegaBest(){
   PFont f = createFont("Arial",16,true);
   textFont(f,15);
   fill(#00ff00);
-  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals),10,20);
+  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals)+"\nTime to best: "+nf(timeToBest, 0, 2)+"s", 10, 20);
+
 }
 
 // ===============================================================
+int obtenerSiguienteNumero(String ruta) {
+  File dir = new File(ruta);
+  File[] archivos = dir.listFiles();
+  int contador = 1;
+  
+  if (archivos != null) {
+    for (File archivo : archivos) {
+      if (archivo.getName().startsWith("pso_") && archivo.getName().endsWith(".csv")) {
+        contador++;
+      }
+    }
+  }
+  return contador;
+}
 
-void setup(){  
-  size(1024,512); 
-  
-  //Creación de tabla para exportar datos
+void setup() {
+  size(1024, 512);
+
+  // 1. Crear la carpeta si no existe
+  File f = new File(sketchPath(carpeta));
+  if (!f.exists()) {
+    f.mkdir();
+  }
+
+  // 2. Calcular el número correlativo (pso_1, pso_2...)
+  int num = obtenerSiguienteNumero(sketchPath(carpeta));
+  nombreArchivo = carpeta + "pso_" + num + ".csv";
+  println("El archivo se guardará como: " + nombreArchivo);
+
+  // 3. Creación de tabla para exportar datos
   InitTable();
-  
-  
-  // Generar el mapa visual
+
+  // 4. Generar el mapa visual (Rastrigin Landscape)
   surf = createImage(width, height, RGB);
   surf.loadPixels();
-  for(int i = 0; i < width; i++) {
-    for(int j = 0; j < height; j++) {
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
       float val = evaluarRastrigin(i, j);
-      
-      // Mapeamos el Z a un color. 
-      // Rastrigin en este dominio va aprox de 0 a 150.
-      // Mapeamos para que el 0 (mínimo) sea blanco (255) y los altos oscuros (0)
+      // Mapeamos: 0 (mínimo) es blanco (255), 150 (máximo) es oscuro (0)
       float colorPixel = map(val, 0, 150, 255, 0); 
       surf.pixels[i + j * width] = color(colorPixel);
     }
   }
   surf.updatePixels(); 
-  
+
+  // 5. Inicializar partículas
   smooth();
   fl = new Particle[puntos];
-  for(int i =0;i<puntos;i++)
+  for (int i = 0; i < puntos; i++) {
     fl[i] = new Particle();
+  }
+
+  startTime = millis(); // Guarda el milisegundo de inicio
 }
 
 void draw(){
