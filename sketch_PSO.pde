@@ -16,6 +16,9 @@ long startTime; // Tiempo de inicio
 float timeToBest = 0; // Tiempo en el que se encontró el mejor actual
 
 int iteracion = 0;
+//Almacenamiento csv
+String nombreArchivo;
+String carpeta = "registros/";
 
 // ===============================================================
 // Tabla de exportación de datos
@@ -56,8 +59,8 @@ void guardarDatos(){
   iteracion++;
 }
 void keyPressed(){
-  saveTable(table, "datos_pso.csv");
-  println("datos guardados");
+  saveTable(table, nombreArchivo);
+  println("Datos guardados en: " + nombreArchivo);
 }
 
 
@@ -160,38 +163,59 @@ void despliegaBest(){
 }
 
 // ===============================================================
+int obtenerSiguienteNumero(String ruta) {
+  File dir = new File(ruta);
+  File[] archivos = dir.listFiles();
+  int contador = 1;
+  
+  if (archivos != null) {
+    for (File archivo : archivos) {
+      if (archivo.getName().startsWith("pso_") && archivo.getName().endsWith(".csv")) {
+        contador++;
+      }
+    }
+  }
+  return contador;
+}
 
-void setup(){  
-  size(1024,512); 
-  
-  //Creación de tabla para exportar datos
+void setup() {
+  size(1024, 512);
+
+  // 1. Crear la carpeta si no existe
+  File f = new File(sketchPath(carpeta));
+  if (!f.exists()) {
+    f.mkdir();
+  }
+
+  // 2. Calcular el número correlativo (pso_1, pso_2...)
+  int siguienteNumero = obtenerSiguienteNumero(sketchPath(carpeta));
+  nombreArchivo = carpeta + "pso_" + siguienteNumero + ".csv";
+  println("El archivo se guardará como: " + nombreArchivo);
+
+  // 3. Creación de tabla para exportar datos
   InitTable();
-  
-  
-  // Generar el mapa visual
+
+  // 4. Generar el mapa visual (Rastrigin Landscape)
   surf = createImage(width, height, RGB);
   surf.loadPixels();
-  for(int i = 0; i < width; i++) {
-    for(int j = 0; j < height; j++) {
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
       float val = evaluarRastrigin(i, j);
-      
-      // Mapeamos el Z a un color. 
-      // Rastrigin en este dominio va aprox de 0 a 150.
-      // Mapeamos para que el 0 (mínimo) sea blanco (255) y los altos oscuros (0)
+      // Mapeamos: 0 (mínimo) es blanco (255), 150 (máximo) es oscuro (0)
       float colorPixel = map(val, 0, 150, 255, 0); 
       surf.pixels[i + j * width] = color(colorPixel);
     }
   }
   surf.updatePixels(); 
-  
+
+  // 5. Inicializar partículas
   smooth();
   fl = new Particle[puntos];
-  for(int i =0;i<puntos;i++)
+  for (int i = 0; i < puntos; i++) {
     fl[i] = new Particle();
-    
-    
-  startTime = millis(); // Guarda el milisegundo actual  
- 
+  }
+
+  startTime = millis(); // Guarda el milisegundo de inicio
 }
 
 void draw(){
