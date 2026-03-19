@@ -11,6 +11,9 @@ float C1 = 30, C2 =  30; // learning factors (C1: own, C2: social) (ok)
 int evals = 0, evals_to_best = 0; //número de evaluaciones, sólo para despliegue
 float maxv = 3; // max velocidad (modulo)
 float time = 0; //tiempo en el que el algoritmo encuentra el minimo
+// variables para el temporizador
+long startTime; // Tiempo de inicio 
+float timeToBest = 0; // Tiempo en el que se encontró el mejor actual
 
 int iteracion = 0;
 
@@ -29,6 +32,7 @@ void InitTable(){
    table.addColumn("C2");
    table.addColumn("evals");
    table.addColumn("evals to best");
+   table.addColumn("tiempo_al_mejor");
 
 }
 void guardarDatos(){
@@ -38,6 +42,8 @@ void guardarDatos(){
   fila.setFloat("fitness", gbest);
   fila.setFloat("gbestx", gbestx);
   fila.setFloat("gbesty", gbesty);
+  
+  fila.setFloat("tiempo_al_mejor", timeToBest);
 
   fila.setInt("puntos", puntos);
   fila.setFloat("inercia", w);
@@ -101,8 +107,11 @@ class Particle{
       gbestx = x;
       gbesty = y;
       evals_to_best = evals;
-      println("Nuevo Global Best: " + str(gbest));
+      
+      timeToBest = (millis() - startTime) / 1000.0;// Calcula el tiempo solo cuando hay un récord real
+      println("Nuevo Global Best: " + gbest + " a los " + timeToBest + "s");
     }
+    
     return fit; 
   }
   
@@ -146,7 +155,8 @@ void despliegaBest(){
   PFont f = createFont("Arial",16,true);
   textFont(f,15);
   fill(#00ff00);
-  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals),10,20);
+  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals)+"\nTime to best: "+nf(timeToBest, 0, 2)+"s", 10, 20);
+
 }
 
 // ===============================================================
@@ -178,6 +188,10 @@ void setup(){
   fl = new Particle[puntos];
   for(int i =0;i<puntos;i++)
     fl[i] = new Particle();
+    
+    
+  startTime = millis(); // Guarda el milisegundo actual  
+ 
 }
 
 void draw(){
