@@ -161,17 +161,18 @@ void setup(){
   // Generar el mapa visual
   surf = createImage(width, height, RGB);
   surf.loadPixels();
+  colorMode(HSB, 360, 100, 100);
   for(int i = 0; i < width; i++) {
     for(int j = 0; j < height; j++) {
       float val = evaluarRastrigin(i, j);
       
-      // Mapeamos el Z a un color. 
-      // Rastrigin en este dominio va aprox de 0 a 150.
-      // Mapeamos para que el 0 (mínimo) sea blanco (255) y los altos oscuros (0)
-      float colorPixel = map(val, 0, 150, 255, 0); 
-      surf.pixels[i + j * width] = color(colorPixel);
+      // Mapeamos el fitness a un tono (hue)
+      // Mínimo (0) se verá rojo (caliente) y altos niveles se verán azul (frío)
+      float h = map(constrain(val, 0, 150), 0, 150, 0, 240); 
+      surf.pixels[i + j * width] = color(h, 100, 100);
     }
   }
+  colorMode(RGB, 255);
   surf.updatePixels(); 
   
   smooth();
