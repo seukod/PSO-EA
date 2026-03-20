@@ -21,6 +21,14 @@ String nombreArchivo;
 String carpeta = "registros/";
 
 // ===============================================================
+// VARIABLES PARA LAS 30 SIMULACIONES DE 10 SEGUNDOS
+// ===============================================================
+int simulacion_count = 0;
+int max_simulaciones = 30;
+int tiempo_simulacion = 10000; // 10 segundos en milisegundos
+boolean simulacion_activa = true;
+
+// ===============================================================
 // Tabla de exportación de datos
 // ===============================================================
 void InitTable(){
@@ -59,8 +67,11 @@ void guardarDatos(){
   iteracion++;
 }
 void keyPressed(){
-  saveTable(table, nombreArchivo);
-  println("Datos guardados en: " + nombreArchivo);
+  // Presiona 's' para guardar manualmente (opcional)
+  if (key == 's' || key == 'S') {
+    saveTable(table, nombreArchivo);
+    println("Datos guardados en: " + nombreArchivo);
+  }
 }
 
 
@@ -178,58 +189,92 @@ int obtenerSiguienteNumero(String ruta) {
   return contador;
 }
 
-void setup() {
-  size(1024, 512);
-
+void inicializarSimulacion() {
   // 1. Crear la carpeta si no existe
   File f = new File(sketchPath(carpeta));
   if (!f.exists()) {
     f.mkdir();
   }
 
-  // 2. Calcular el número correlativo (pso_1, pso_2...)
-  int num = obtenerSiguienteNumero(sketchPath(carpeta));
-  nombreArchivo = carpeta + "pso_" + num + ".csv";
-  println("El archivo se guardará como: " + nombreArchivo);
-
-  // 3. Creación de tabla para exportar datos
+  // 2. Crear tabla para exportar datos
   InitTable();
 
-  // 4. Generar el mapa visual (Rastrigin Landscape)
+  // 3. Generar el mapa visual (Rastrigin Landscape)
   surf = createImage(width, height, RGB);
   surf.loadPixels();
   for (int i = 0; i < width; i++) {
     for (int j = 0; j < height; j++) {
       float val = evaluarRastrigin(i, j);
-      // Mapeamos: 0 (mínimo) es blanco (255), 150 (máximo) es oscuro (0)
       float colorPixel = map(val, 0, 150, 255, 0); 
       surf.pixels[i + j * width] = color(colorPixel);
     }
   }
   surf.updatePixels(); 
 
-  // 5. Inicializar partículas
-  smooth();
+  // 4. Inicializar partículas
   fl = new Particle[puntos];
   for (int i = 0; i < puntos; i++) {
     fl[i] = new Particle();
   }
 
+  // 5. Reiniciar variables de tracking
+  gbestx = 0;
+  gbesty = 0;
+  gbest = Float.MAX_VALUE;
+  evals = 0;
+  evals_to_best = 0;
+  iteracion = 0;
+  timeToBest = 0;
+  
   startTime = millis(); // Guarda el milisegundo de inicio
 }
 
+void setup() {
+  size(1024, 512);
+  smooth();
+  inicializarSimulacion();
+}
+
 void draw(){
-  image(surf,0,0);
+  if (!simulacion_activa) {
+    return; // Si no hay simulación activa, no hacer nada
+  }
+
+  // Verifica si ya pasaron 10 segundos
+  long tiempoTranscurrido = millis() - startTime;
   
-  for(int i = 0;i<puntos;i++){
+  if (tiempoTranscurrido >= tiempo_simulacion) {
+    // GUARDAR DATOS
+    simulacion_count++;
+    nombreArchivo = carpeta + "tabla" + simulacion_count + ".csv";
+    saveTable(table, nombreArchivo);
+    println("=== Simulación " + simulacion_count + " completada ===");
+    println("Datos guardados en: " + nombreArchivo);
+    println("Mejor fitness: " + gbest);
+    println();
+    
+    // Verificar si llegamos a 30 simulaciones
+    if (simulacion_count >= max_simulaciones) {
+      println("✓ ¡30 simulaciones completadas!");
+      simulacion_activa = false;
+      return;
+    }
+    
+    // Reiniciar para la siguiente simulación
+    inicializarSimulacion();
+  }
+
+  // NORMAL SIMULATION
+  image(surf, 0, 0);
+  
+  for (int i = 0; i < puntos; i++) {
     fl[i].display();
   }
   despliegaBest();
   
-  for(int i = 0;i<puntos;i++){
+  for (int i = 0; i < puntos; i++) {
     fl[i].move();
     fl[i].Eval(); 
   }
-  guardarDatos(); 
-  
+  guardarDatos();
 }
