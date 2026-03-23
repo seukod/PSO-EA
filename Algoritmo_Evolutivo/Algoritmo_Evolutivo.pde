@@ -1,5 +1,6 @@
 PImage surf;
 Table table;
+long currentSeed; // Variable para rastrear la semilla actual
 
 // ===============================================================
 // PARÁMETROS DEL ALGORITMO EVOLUTIVO
@@ -13,7 +14,7 @@ int evals = 0, evals_to_best = 0;
 
 // Parámetros Genéticos
 float mutationRate = 0.1; // 10% de probabilidad de mutar
-float mutationForce = 15.0; // Píxeles máximos de desplazamiento al mutar
+float mutationForce = 55.0; // Píxeles máximos de desplazamiento al mutar
 int tournamentSize = 3; // Presión selectiva
 
 long startTime; 
@@ -37,6 +38,7 @@ boolean simulacion_activa = true;
 void InitTable() {
   table = new Table();
   table.addColumn("iteracion");
+  table.addColumn("semilla"); // Nueva columna
   table.addColumn("fitness");
   table.addColumn("gbestx");
   table.addColumn("gbesty");
@@ -52,6 +54,7 @@ void InitTable() {
 void guardarDatos() {
   TableRow fila = table.addRow();
   fila.setFloat("fitness", gbest);
+  fila.setLong("semilla", currentSeed); // Guardamos la semilla en cada fila
   fila.setFloat("gbestx", gbestx);
   fila.setFloat("gbesty", gbesty);
   fila.setFloat("tiempo_al_mejor", timeToBest);
@@ -168,11 +171,21 @@ void evolucionar() {
 // INICIALIZACIÓN Y BUCLE PRINCIPAL
 // ===============================================================
 void inicializarSimulacion() {
+  currentSeed = System.currentTimeMillis();
+  randomSeed((int)currentSeed);
+  noiseSeed((int)random(1000000));
+  
   File f = new File(sketchPath(carpeta));
   if (!f.exists()) f.mkdir();
 
   InitTable();
 
+  gbest = Float.MAX_VALUE; 
+  evals = 0; 
+  evals_to_best = 0; 
+  iteracion = 0; 
+  timeToBest = 0;
+  
   surf = createImage(width, height, RGB);
   surf.loadPixels();
   for (int i = 0; i < width; i++) {
@@ -189,8 +202,6 @@ void inicializarSimulacion() {
     pop[i].evaluate(); // Evaluación inicial
   }
 
-  gbestx = pop[0].x; gbesty = pop[0].y; gbest = pop[0].fit;
-  evals = 0; evals_to_best = 0; iteracion = 0; timeToBest = 0;
   startTime = millis(); 
 }
 
@@ -213,7 +224,7 @@ void draw() {
 
   if (millis() - startTime >= tiempo_simulacion) {
     simulacion_count++;
-    nombreArchivo = carpeta + "ea_tabla" + simulacion_count + ".csv";
+    nombreArchivo = carpeta + "ea_tabla" + simulacion_count + "_seed_" + currentSeed + ".csv";
     saveTable(table, nombreArchivo);
     println("=== Simulación EA " + simulacion_count + " completada ===");
     
