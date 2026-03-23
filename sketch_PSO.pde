@@ -1,6 +1,7 @@
 PImage surf;
 Table table;
-
+long currentSeed;
+//30 tablas x parametro 
 // ===============================================================
 int puntos = 100;
 Particle[] fl; // arreglo de partículas
@@ -35,6 +36,7 @@ void InitTable(){
    table = new Table();
    table.addColumn("iteracion");
    table.addColumn("fitness");
+   table.addColumn("semilla");
    table.addColumn("gbestx");
    table.addColumn("gbesty");
    table.addColumn("puntos");
@@ -49,7 +51,8 @@ void InitTable(){
 void guardarDatos(){
 
   TableRow fila = table.addRow();
-
+  
+  fila.setLong("semilla", currentSeed);
   fila.setFloat("fitness", gbest);
   fila.setFloat("gbestx", gbestx);
   fila.setFloat("gbesty", gbesty);
@@ -190,6 +193,11 @@ int obtenerSiguienteNumero(String ruta) {
 }
 
 void inicializarSimulacion() {
+  
+  currentSeed = System.currentTimeMillis();
+  randomSeed((int)currentSeed);
+  noiseSeed((int)random(1000000));
+  
   // 1. Crear la carpeta si no existe
   File f = new File(sketchPath(carpeta));
   if (!f.exists()) {
@@ -198,7 +206,16 @@ void inicializarSimulacion() {
 
   // 2. Crear tabla para exportar datos
   InitTable();
-
+  
+  //REINICIA VARIABLES
+  gbest = Float.MAX_VALUE; 
+  gbestx = 0;
+  gbesty = 0;
+  evals = 0;
+  evals_to_best = 0;
+  iteracion = 0;
+  timeToBest = 0;
+  
   // 3. Generar el mapa visual (Rastrigin Landscape)
   surf = createImage(width, height, RGB);
   surf.loadPixels();
@@ -217,14 +234,7 @@ void inicializarSimulacion() {
     fl[i] = new Particle();
   }
 
-  // 5. Reiniciar variables de tracking
-  gbestx = 0;
-  gbesty = 0;
-  gbest = Float.MAX_VALUE;
-  evals = 0;
-  evals_to_best = 0;
-  iteracion = 0;
-  timeToBest = 0;
+  
   
   startTime = millis(); // Guarda el milisegundo de inicio
 }
@@ -246,7 +256,7 @@ void draw(){
   if (tiempoTranscurrido >= tiempo_simulacion) {
     // GUARDAR DATOS
     simulacion_count++;
-    nombreArchivo = carpeta + "tabla" + simulacion_count + ".csv";
+    nombreArchivo = carpeta + "pso_sim" + simulacion_count + "_seed_" + currentSeed + ".csv";
     saveTable(table, nombreArchivo);
     println("=== Simulación " + simulacion_count + " completada ===");
     println("Datos guardados en: " + nombreArchivo);
