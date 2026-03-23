@@ -117,4 +117,127 @@ Individual torneo() {
   Individual best = null;
   for (int i = 0; i < tournamentSize; i++) {
     Individual randomInd = pop[int(random(puntos))];
-    if (best == null || randomInd.fit
+    if (best == null || randomInd.fit < best.fit) {
+      best = randomInd;
+    }
+  }
+  return best;
+}
+
+Individual cruzar(Individual p1, Individual p2) {
+  Individual child = new Individual();
+  // Cruzamiento aritmético: punto medio entre los padres
+  child.x = (p1.x + p2.x) / 2.0;
+  child.y = (p1.y + p2.y) / 2.0;
+  return child;
+}
+
+void mutar(Individual ind) {
+  if (random(1) < mutationRate) {
+    // Ruido aleatorio a la posición
+    ind.x += random(-mutationForce, mutationForce);
+    ind.y += random(-mutationForce, mutationForce);
+    
+    // Mantener dentro de los límites
+    ind.x = constrain(ind.x, 0, width);
+    ind.y = constrain(ind.y, 0, height);
+  }
+}
+
+void evolucionar() {
+  Individual[] newPop = new Individual[puntos];
+  
+  // Elitismo: Guardar al mejor de la generación actual
+  Individual elite = new Individual();
+  elite.x = gbestx; elite.y = gbesty; elite.fit = gbest;
+  newPop[0] = elite;
+  
+  // Generar el resto de la población
+  for (int i = 1; i < puntos; i++) {
+    Individual padre1 = torneo();
+    Individual padre2 = torneo();
+    Individual hijo = cruzar(padre1, padre2);
+    mutar(hijo);
+    newPop[i] = hijo;
+  }
+  
+  pop = newPop;
+}
+
+// ===============================================================
+// INICIALIZACIÓN Y BUCLE PRINCIPAL
+// ===============================================================
+void inicializarSimulacion() {
+  File f = new File(sketchPath(carpeta));
+  if (!f.exists()) f.mkdir();
+
+  InitTable();
+
+  surf = createImage(width, height, RGB);
+  surf.loadPixels();
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
+      float val = evaluarRastrigin(i, j);
+      surf.pixels[i + j * width] = color(map(val, 0, 150, 255, 0));
+    }
+  }
+  surf.updatePixels(); 
+
+  pop = new Individual[puntos];
+  for (int i = 0; i < puntos; i++) {
+    pop[i] = new Individual();
+    pop[i].evaluate(); // Evaluación inicial
+  }
+
+  gbestx = pop[0].x; gbesty = pop[0].y; gbest = pop[0].fit;
+  evals = 0; evals_to_best = 0; iteracion = 0; timeToBest = 0;
+  startTime = millis(); 
+}
+
+void despliegaBest() {
+  fill(#0000ff);
+  ellipse(gbestx, gbesty, d, d);
+  fill(#00ff00);
+  textSize(15);
+  text("EA Best fitness: " + str(gbest) + "\nEvals to best: " + str(evals_to_best) + "\nGenerations: " + str(iteracion) + "\nTime to best: " + nf(timeToBest, 0, 2) + "s", 10, 20);
+}
+
+void setup() {
+  size(1024, 512);
+  smooth();
+  inicializarSimulacion();
+}
+
+void draw() {
+  if (!simulacion_activa) return;
+
+  if (millis() - startTime >= tiempo_simulacion) {
+    simulacion_count++;
+    nombreArchivo = carpeta + "ea_tabla" + simulacion_count + ".csv";
+    saveTable(table, nombreArchivo);
+    println("=== Simulación EA " + simulacion_count + " completada ===");
+    
+    if (simulacion_count >= max_simulaciones) {
+      println("✓ ¡30 simulaciones completadas!");
+      simulacion_activa = false;
+      return;
+    }
+    inicializarSimulacion();
+  }
+
+  image(surf, 0, 0);
+  
+  // Dibujar población actual
+  for (int i = 0; i < puntos; i++) {
+    pop[i].display();
+  }
+  despliegaBest();
+  
+  // Proceso evolutivo por cada frame (1 generación)
+  evolucionar();
+  for (int i = 0; i < puntos; i++) {
+    pop[i].evaluate();
+  }
+  
+  guardarDatos();
+}
