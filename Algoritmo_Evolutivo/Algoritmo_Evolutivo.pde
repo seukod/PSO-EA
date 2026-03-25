@@ -17,6 +17,14 @@ float mutationRate = 0.1; // 10% de probabilidad de mutar
 float mutationForce = 55.0; // Píxeles máximos de desplazamiento al mutar
 int tournamentSize = 3; // Presión selectiva
 
+float[] lista_mutationRate = {0.01, 0.1, 0.4}; // Baja, Media, Alta
+float[] lista_mutationForce = {5.0, 40.0, 150.0}; // Pasos cortos vs Saltos largos
+int[] lista_tournamentSize = {2, 5, 10}; // Presión baja vs Presión alta
+
+int idxRate = 0;
+int idxForce = 0;
+int idxTourn = 0;
+
 long startTime; 
 float timeToBest = 0; 
 int iteracion = 0;
@@ -175,6 +183,16 @@ void inicializarSimulacion() {
   randomSeed((int)currentSeed);
   noiseSeed((int)random(1000000));
   
+  // Lógica de Grid Search: Cambia de 1 en 1 ordenadamente
+  // idxRate cambia cada vez, idxForce cada 3, idxTourn cada 9
+  idxRate = simulacion_count % lista_mutationRate.length;
+  idxForce = (simulacion_count / lista_mutationRate.length) % lista_mutationForce.length;
+  idxTourn = (simulacion_count / (lista_mutationRate.length * lista_mutationForce.length)) % lista_tournamentSize.length;
+
+  mutationRate = lista_mutationRate[idxRate];
+  mutationForce = lista_mutationForce[idxForce];
+  tournamentSize = lista_tournamentSize[idxTourn];
+  
   File f = new File(sketchPath(carpeta));
   if (!f.exists()) f.mkdir();
 
@@ -199,10 +217,20 @@ void inicializarSimulacion() {
   pop = new Individual[puntos];
   for (int i = 0; i < puntos; i++) {
     pop[i] = new Individual();
-    pop[i].evaluate(); // Evaluación inicial
+    pop[i].evaluate();
   }
 
   startTime = millis(); 
+  
+  // Mensajes en español para la consola
+  println("==================================================");
+  println("INICIANDO SIMULACIÓN #" + (simulacion_count + 1) + " de 27");
+  println(">>> CONFIGURACIÓN DE HEURÍSTICA:");
+  println("  - Tasa de Mutación: " + mutationRate);
+  println("  - Fuerza de Mutación: " + mutationForce + " píxeles");
+  println("  - Tamaño del Torneo: " + tournamentSize + " individuos");
+  println("  - Semilla Actual: " + currentSeed);
+  println("==================================================");
 }
 
 void despliegaBest() {
