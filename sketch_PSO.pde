@@ -29,7 +29,7 @@ String carpeta = "registros/";
 // ===============================================================
 int simulacion_count = 0;
 int max_simulaciones = 30;
-int tiempo_simulacion = 10000; // 10 segundos en milisegundos
+int max_iteraciones = 1000; // Número máximo de iteraciones por simulación
 boolean simulacion_activa = true;
 
 // ===============================================================
@@ -175,7 +175,7 @@ void despliegaBest(){
   PFont f = createFont("Arial",16,true);
   textFont(f,15);
   fill(#00ff00);
-  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals)+"\nTime to best: "+nf(timeToBest, 0, 2)+"s", 10, 20);
+  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals)+"\nIteraciones: "+str(iteracion)+"/"+str(max_iteraciones)+"\nTime to best: "+nf(timeToBest, 0, 2)+"s", 10, 20);
 
 }
 
@@ -259,15 +259,14 @@ void draw(){
     return; // Si no hay simulación activa, no hacer nada
   }
 
-  // Verifica si ya pasaron 10 segundos
-  long tiempoTranscurrido = millis() - startTime;
-  
-  if (tiempoTranscurrido >= tiempo_simulacion) {
+  // Verifica si se alcanzaron 1000 iteraciones
+  if (iteracion >= max_iteraciones) {
     // GUARDAR DATOS
     simulacion_count++;
     nombreArchivo = carpeta + "pso_sim" + simulacion_count + "_seed_" + currentSeed + ".csv";
     saveTable(table, nombreArchivo);
     println("=== Simulación " + simulacion_count + " completada ===");
+    println("Iteraciones: " + iteracion);
     println("Datos guardados en: " + nombreArchivo);
     println("Mejor fitness: " + gbest);
     println();
