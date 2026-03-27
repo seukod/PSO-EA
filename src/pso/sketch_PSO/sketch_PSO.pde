@@ -16,6 +16,9 @@ float time = 0; //tiempo en el que el algoritmo encuentra el minimo
 long startTime; // Tiempo de inicio 
 float timeToBest = 0; // Tiempo en el que se encontró el mejor actual
 
+float decay = 0.995; // Factor de decaimiento (multiplica a w en cada frame)
+float w_min = 50.0;   // Inercia mínima para que no se detengan por completo
+
 int iteracion = 0;
 //Almacenamiento csv
 String nombreArchivo;
@@ -207,6 +210,12 @@ void inicializarSimulacion() {
   // 2. Crear tabla para exportar datos
   InitTable();
   
+  //  
+  // Cambia estos valores manualmente cuando quieras probar "Bajo" o "Alto"
+  w = 5000;  // Valor Base de Inercia
+  C1 = 30;   // Valor Base Cognitivo
+  C2 = 10;   // Valor Base Social
+  
   //REINICIA VARIABLES
   gbest = Float.MAX_VALUE; 
   gbestx = 0;
@@ -285,6 +294,10 @@ void draw(){
   for (int i = 0; i < puntos; i++) {
     fl[i].move();
     fl[i].Eval(); 
+  }
+  // HEURÍSTICA: La inercia baja dinámicamente
+  if (w > w_min) {
+    w *= decay; // Baja un 0.5% en cada iteración
   }
   guardarDatos();
 }

@@ -1,0 +1,12 @@
+# macOS metadata
+.DS_Store
+
+# Processing build artifacts
+*.class
+applet/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
