@@ -63,6 +63,76 @@ def alinear_datos(dfs, min_iters):
     return [df.iloc[:min_iters].reset_index(drop=True) for df in dfs]
 
 
+def graficar_convergencia(dfs_alineados, output_path):
+    """Genera 2 gráficos de convergencia: uno con escala lineal y otro logarítmica."""
+    # Calcular métricas de cada iteración
+    gbest_mejor = None  # Mejor gbest global entre todas las ejecuciones
+    fitness_pop_promedio = None  # Promedio del fitness poblacional entre las 30 ejecuciones
+    
+    for df in dfs_alineados:
+        if gbest_mejor is None:
+            gbest_mejor = np.array(df['fitness'].values, copy=True)
+            fitness_pop_promedio = np.array(df['fitness_promedio'].values, copy=True)
+        else:
+            # Mejor gbest global: tomar el mínimo entre iteraciones
+            gbest_mejor = np.minimum(gbest_mejor, df['fitness'].values)
+            # Promedio poblacional: acumular para promediar después
+            fitness_pop_promedio += df['fitness_promedio'].values
+    
+    # Promediar el fitness poblacional (dividir por cantidad de ejecuciones)
+    fitness_pop_promedio = fitness_pop_promedio / len(dfs_alineados)
+    
+    # Reemplazar ceros exactos con un valor muy pequeño
+    gbest_mejor = np.where(gbest_mejor == 0, 1e-4, gbest_mejor)
+    fitness_pop_promedio = np.where(fitness_pop_promedio == 0, 1e-4, fitness_pop_promedio)
+    
+    iteraciones = np.arange(len(gbest_mejor))
+    
+    # =========== GRÁFICO 1: ESCALA LINEAL ===========
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    ax.plot(iteraciones, fitness_pop_promedio, color='#0066cc', linewidth=2.5, label='Caso Promedio (Promedio Poblacional de 30 ejecuciones)', zorder=2)
+    ax.plot(iteraciones, gbest_mejor, color='#cc0000', linewidth=2.5, label='Mejor Caso (Mejor Global)', zorder=2)
+    ax.fill_between(iteraciones, fitness_pop_promedio, gbest_mejor, alpha=0.1, color='gray', label='Brecha (Exploración vs Explotación)')
+    
+    ax.set_xlabel("Iteraciones", fontsize=12, fontweight='bold')
+    ax.set_ylabel("Fitness", fontsize=12, fontweight='bold')
+    ax.set_title("Convergencia PSO - Caso Promedio vs Mejor Caso (Escala Lineal)", fontsize=14, fontweight='bold', pad=15)
+    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.legend(fontsize=11, loc='best', framealpha=0.95)
+    ax.set_xlim(left=0)
+    
+    plt.tight_layout()
+    # Guardar con sufijo _lineal
+    output_lineal = output_path.replace('.png', '_lineal.png')
+    plt.savefig(output_lineal, dpi=300, bbox_inches='tight')
+    print(f"✓ Gráfico guardado: {output_lineal}")
+    plt.close()
+    
+    # =========== GRÁFICO 2: ESCALA LOGARÍTMICA ===========
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    ax.plot(iteraciones, fitness_pop_promedio, color='#0066cc', linewidth=2.5, label='Caso Promedio (Promedio Poblacional de 30 ejecuciones)', zorder=2)
+    ax.plot(iteraciones, gbest_mejor, color='#cc0000', linewidth=2.5, label='Mejor Caso (Mejor Global)', zorder=2)
+    ax.fill_between(iteraciones, fitness_pop_promedio, gbest_mejor, alpha=0.1, color='gray', label='Brecha (Exploración vs Explotación)')
+    
+    ax.set_xlabel("Iteraciones", fontsize=12, fontweight='bold')
+    ax.set_ylabel("Fitness (escala logarítmica)", fontsize=12, fontweight='bold')
+    ax.set_title("Convergencia PSO - Caso Promedio vs Mejor Caso (Escala Logarítmica)", fontsize=14, fontweight='bold', pad=15)
+    ax.set_yscale('log')
+    ax.set_ylim(0.001, fitness_pop_promedio.max() * 10)
+    ax.grid(True, alpha=0.3, linestyle='--', which='both')
+    ax.legend(fontsize=11, loc='best', framealpha=0.95)
+    ax.set_xlim(left=0)
+    
+    plt.tight_layout()
+    # Guardar con sufijo _log
+    output_log = output_path.replace('.png', '_log.png')
+    plt.savefig(output_log, dpi=300, bbox_inches='tight')
+    print(f"✓ Gráfico guardado: {output_log}")
+    plt.close()
+
+
 def imprimir_resumen(dfs_alineados):
     """Imprime un resumen de los resultados."""
     print("\n" + "="*70)

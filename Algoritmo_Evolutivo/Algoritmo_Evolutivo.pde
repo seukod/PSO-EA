@@ -13,21 +13,21 @@ float gbestx, gbesty, gbest = Float.MAX_VALUE;
 int evals = 0, evals_to_best = 0; 
 
 // Parámetros Genéticos
-float mutationRate = 0.1; // 10% de probabilidad de mutar
-float mutationForce = 55.0; // Píxeles máximos de desplazamiento al mutar
-int tournamentSize = 3; // Presión selectiva
+float mutationRate = 0.4;   // Tasa inicial de mutación (será reducida dinámicamente)
+float mutationForce = 55.0; // Fuerza inicial de mutación (será reducida dinámicamente)
+int tournamentSize = 5;     // Presión selectiva
 
-float[] lista_mutationRate = {0.01, 0.1, 0.4}; // Baja, Media, Alta
-float[] lista_mutationForce = {5.0, 40.0, 150.0}; // Pasos cortos vs Saltos largos
-int[] lista_tournamentSize = {2, 5, 10}; // Presión baja vs Presión alta
-
-int idxRate = 0;
-int idxForce = 0;
-int idxTourn = 0;
+// Decaimiento dinámico de mutación (cooling schedule)
+float mutationDecay = 0.995;  // Factor de decaimiento por iteración (0.5% por iteración)
+float mutationRateMin = 0.05; // Tasa mínima de mutación (nunca baja de esto)
+float mutationForceMin = 2.0; // Fuerza mínima de mutación
 
 long startTime; 
 float timeToBest = 0; 
 int iteracion = 0;
+int iteraciones_sin_mejora = 0;
+int patience = 150; // Iteraciones sin mejora antes de detener
+float gbest_anterior = Float.MAX_VALUE;
 
 String nombreArchivo;
 String carpeta = "registros/";
@@ -37,7 +37,7 @@ String carpeta = "registros/";
 // ===============================================================
 int simulacion_count = 0;
 int max_simulaciones = 30;
-int tiempo_simulacion = 10000; // 10 segundos
+int max_iteraciones = 2000; // Máximo de iteraciones como respaldo
 boolean simulacion_activa = true;
 
 // ===============================================================
@@ -48,6 +48,7 @@ void InitTable() {
   table.addColumn("iteracion");
   table.addColumn("semilla"); // Nueva columna
   table.addColumn("fitness");
+  table.addColumn("fitness_promedio"); // Promedio de la población
   table.addColumn("gbestx");
   table.addColumn("gbesty");
   table.addColumn("poblacion");
@@ -60,8 +61,16 @@ void InitTable() {
 }
 
 void guardarDatos() {
+  // Calcular promedio de fitness de toda la población
+  float sumaFitness = 0;
+  for (int i = 0; i < puntos; i++) {
+    sumaFitness += pop[i].fit;
+  }
+  float fitnessPromedio = sumaFitness / puntos;
+  
   TableRow fila = table.addRow();
   fila.setFloat("fitness", gbest);
+  fila.setFloat("fitness_promedio", fitnessPromedio);
   fila.setLong("semilla", currentSeed); // Guardamos la semilla en cada fila
   fila.setFloat("gbestx", gbestx);
   fila.setFloat("gbesty", gbesty);
@@ -137,13 +146,29 @@ Individual torneo() {
 
 Individual cruzar(Individual p1, Individual p2) {
   Individual child = new Individual();
-  // Cruzamiento aritmético: punto medio entre los padres
-  child.x = (p1.x + p2.x) / 2.0;
-  child.y = (p1.y + p2.y) / 2.0;
+  // Cruzamiento BLX-alpha: menos explorativo para más explotación
+  float alpha = 0.2; // Factor de exploración (reducido)
+  float min_x = min(p1.x, p2.x);
+  float max_x = max(p1.x, p2.x);
+  float min_y = min(p1.y, p2.y);
+  float max_y = max(p1.y, p2.y);
+  
+  float range_x = max_x - min_x;
+  float range_y = max_y - min_y;
+  
+  // Expande el rango de cruzamiento para mayor exploración
+  child.x = random(min_x - alpha * range_x, max_x + alpha * range_x);
+  child.y = random(min_y - alpha * range_y, max_y + alpha * range_y);
+  
+  // Mantener dentro de límites
+  child.x = constrain(child.x, 0, width);
+  child.y = constrain(child.y, 0, height);
+  
   return child;
 }
 
 void mutar(Individual ind) {
+  // Mayor tasa de mutación para mejor exploración
   if (random(1) < mutationRate) {
     // Ruido aleatorio a la posición
     ind.x += random(-mutationForce, mutationForce);
@@ -158,9 +183,22 @@ void mutar(Individual ind) {
 void evolucionar() {
   Individual[] newPop = new Individual[puntos];
   
-  // Elitismo: Guardar al mejor de la generación actual
+  // Elitismo: Guardar al mejor pero CON MUTACIÓN para diversidad
   Individual elite = new Individual();
-  elite.x = gbestx; elite.y = gbesty; elite.fit = gbest;
+  elite.x = gbestx;
+  elite.y = gbesty;
+  elite.fit = gbest;
+  
+  // MUTACIÓN DE ÉLITE: pequeña probabilidad de diversificar
+  if (random(1) < 0.1) {  // 10% de probabilidad de mutar la élite
+    if (random(1) < mutationRate * 0.5) {
+      elite.x += random(-mutationForce * 0.3, mutationForce * 0.3);
+      elite.y += random(-mutationForce * 0.3, mutationForce * 0.3);
+      elite.x = constrain(elite.x, 0, width);
+      elite.y = constrain(elite.y, 0, height);
+      elite.evaluate();
+    }
+  }
   newPop[0] = elite;
   
   // Generar el resto de la población
@@ -183,25 +221,17 @@ void inicializarSimulacion() {
   randomSeed((int)currentSeed);
   noiseSeed((int)random(1000000));
   
-  // Lógica de Grid Search: Cambia de 1 en 1 ordenadamente
-  // idxRate cambia cada vez, idxForce cada 3, idxTourn cada 9
-  idxRate = simulacion_count % lista_mutationRate.length;
-  idxForce = (simulacion_count / lista_mutationRate.length) % lista_mutationForce.length;
-  idxTourn = (simulacion_count / (lista_mutationRate.length * lista_mutationForce.length)) % lista_tournamentSize.length;
-
-  mutationRate = lista_mutationRate[idxRate];
-  mutationForce = lista_mutationForce[idxForce];
-  tournamentSize = lista_tournamentSize[idxTourn];
-  
   File f = new File(sketchPath(carpeta));
   if (!f.exists()) f.mkdir();
 
   InitTable();
 
   gbest = Float.MAX_VALUE; 
+  gbest_anterior = Float.MAX_VALUE;
   evals = 0; 
   evals_to_best = 0; 
-  iteracion = 0; 
+  iteracion = 0;
+  iteraciones_sin_mejora = 0;
   timeToBest = 0;
   
   surf = createImage(width, height, RGB);
@@ -224,8 +254,8 @@ void inicializarSimulacion() {
   
   // Mensajes en español para la consola
   println("==================================================");
-  println("INICIANDO SIMULACIÓN #" + (simulacion_count + 1) + " de 27");
-  println(">>> CONFIGURACIÓN DE HEURÍSTICA:");
+  println("INICIANDO SIMULACIÓN #" + (simulacion_count + 1) + " de 30");
+  println(">>> CONFIGURACIÓN DE PARÁMETROS:");
   println("  - Tasa de Mutación: " + mutationRate);
   println("  - Fuerza de Mutación: " + mutationForce + " píxeles");
   println("  - Tamaño del Torneo: " + tournamentSize + " individuos");
@@ -238,7 +268,7 @@ void despliegaBest() {
   ellipse(gbestx, gbesty, d, d);
   fill(#00ff00);
   textSize(15);
-  text("EA Best fitness: " + str(gbest) + "\nEvals to best: " + str(evals_to_best) + "\nGenerations: " + str(iteracion) + "\nTime to best: " + nf(timeToBest, 0, 2) + "s", 10, 20);
+  text("EA Best fitness: " + str(gbest) + "\nEvals to best: " + str(evals_to_best) + "\nIteraciones: " + str(iteracion) + "\nSin mejora: " + str(iteraciones_sin_mejora) + "/" + str(patience) + "\nTime to best: " + nf(timeToBest, 0, 2) + "s" + "\nMut Rate: " + nf(mutationRate, 0, 3) + " | Mut Force: " + nf(mutationForce, 0, 1), 10, 20);
 }
 
 void setup() {
@@ -250,11 +280,17 @@ void setup() {
 void draw() {
   if (!simulacion_activa) return;
 
-  if (millis() - startTime >= tiempo_simulacion) {
+  // Verifica convergencia: si 150 iteraciones sin mejora O máximo de iteraciones
+  if (iteraciones_sin_mejora >= patience || iteracion >= max_iteraciones) {
     simulacion_count++;
-    nombreArchivo = carpeta + "ea_tabla" + simulacion_count + "_seed_" + currentSeed + ".csv";
+    nombreArchivo = carpeta + "ea_sim" + simulacion_count + "_seed_" + currentSeed + ".csv";
     saveTable(table, nombreArchivo);
     println("=== Simulación EA " + simulacion_count + " completada ===");
+    println("Iteraciones totales: " + iteracion);
+    println("Iteraciones sin mejora: " + iteraciones_sin_mejora);
+    println("Datos guardados en: " + nombreArchivo);
+    println("Mejor fitness: " + gbest);
+    println();
     
     if (simulacion_count >= max_simulaciones) {
       println("✓ ¡30 simulaciones completadas!");
@@ -278,5 +314,21 @@ void draw() {
     pop[i].evaluate();
   }
   
+  // Contar iteraciones sin mejora
+  if (gbest < gbest_anterior) {
+    iteraciones_sin_mejora = 0;
+    gbest_anterior = gbest;
+  } else {
+    iteraciones_sin_mejora++;
+  }
+  
   guardarDatos();
+  
+  // Decaimiento dinámico de mutación: balance exploración/explotación
+  if (mutationRate > mutationRateMin) {
+    mutationRate *= mutationDecay;
+  }
+  if (mutationForce > mutationForceMin) {
+    mutationForce *= mutationDecay;
+  }
 }
