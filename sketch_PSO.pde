@@ -1,8 +1,11 @@
 PImage surf;
 Table table;
 long currentSeed;
-//30 tablas x parametro 
+//30 tablas x parametro
 // ===============================================================
+float margen = 50; // Margen para los ejes cartesianos
+float areaX, areaY, areaWidth, areaHeight;
+
 int puntos = 100;
 Particle[] fl; // arreglo de partículas
 float d = 15; // radio del círculo, solo para despliegue
@@ -99,16 +102,16 @@ void keyPressed(){
 // FUNCIÓN DE RASTRIGIN 2D
 // ===============================================================
 float evaluarRastrigin(float screenX, float screenY) {
-  // Mapeamos las coordenadas de la pantalla (0 a width/height) 
+  // Mapeamos las coordenadas de pantalla dentro del área de márgenes
   // al dominio matemático (-3 a 7)
-  float x = map(screenX, 0, width, -3, 7);
-  float y = map(screenY, 0, height, -3, 7);
-  
+  float x = map(screenX, areaX, areaX + areaWidth, -3, 7);
+  float y = map(screenY, areaY, areaY + areaHeight, -3, 7);
+
   // Ecuación matemática pura
   float termX = (x * x) - 10 * cos(TWO_PI * x);
   float termY = (y * y) - 10 * cos(TWO_PI * y);
   float z = 20 + termX + termY;
-  
+
   return z; // Retornamos el valor Z (fitness)
 }
 
@@ -121,7 +124,8 @@ class Particle{
   
   // SOLUCIÓN 1: Inicialización correcta - Evaluar inmediatamente la posición inicial
   Particle(){
-    x = random (width); y = random(height);
+    x = areaX + random(areaWidth);
+    y = areaY + random(areaHeight);
     vx = random(-1,1) ; vy = random(-1,1);
 
     // Evaluar posición inicial INMEDIATAMENTE para evitar desfase
@@ -177,10 +181,10 @@ class Particle{
 
     // SOLUCIÓN 3: Clamping en vez de rebote - Mantiene partículas dentro del espacio
     // sin invertir velocidad (mejor para convergencia hacia gbest)
-    if (x > width) { x = width; vx = 0; }
-    if (x < 0) { x = 0; vx = 0; }
-    if (y > height) { y = height; vy = 0; }
-    if (y < 0) { y = 0; vy = 0; }
+    if (x > areaX + areaWidth) { x = areaX + areaWidth; vx = 0; }
+    if (x < areaX) { x = areaX; vx = 0; }
+    if (y > areaY + areaHeight) { y = areaY + areaHeight; vy = 0; }
+    if (y < areaY) { y = areaY; vy = 0; }
   }
   
   void display(){
@@ -193,20 +197,101 @@ class Particle{
   }
 } 
 
+void dibujarEjes(){
+  stroke(30);
+  strokeWeight(2);
+  fill(30);
+
+  // Dibujar ejes X e Y con mejor estilo
+  // Eje X (abajo)
+  line(areaX, areaY + areaHeight, areaX + areaWidth, areaY + areaHeight);
+  // Eje Y (izquierda)
+  line(areaX, areaY, areaX, areaY + areaHeight);
+
+  // Flechas de los ejes más elegantes
+  float arrowSize = 10;
+  // Flecha X derecha
+  line(areaX + areaWidth, areaY + areaHeight, areaX + areaWidth - arrowSize, areaY + areaHeight - arrowSize/2);
+  line(areaX + areaWidth, areaY + areaHeight, areaX + areaWidth - arrowSize, areaY + areaHeight + arrowSize/2);
+
+  // Flecha Y arriba
+  line(areaX, areaY, areaX - arrowSize/2, areaY + arrowSize);
+  line(areaX, areaY, areaX + arrowSize/2, areaY + arrowSize);
+
+  // Etiquetas de ejes más grandes
+  PFont fEjes = createFont("Arial", 16, true);
+  textFont(fEjes);
+  fill(30);
+  textAlign(CENTER);
+  text("X", areaX + areaWidth + 25, areaY + areaHeight + 20);
+  textAlign(RIGHT);
+  text("Y", areaX - 20, areaY - 10);
+
+  // Dibujar grid de valores en los ejes con mejor formatting
+  PFont fLabels = createFont("Arial", 11, true);
+  textFont(fLabels);
+  textAlign(CENTER);
+
+  float[] valoresX = {-3, -1, 1, 3, 5, 7};
+
+  // Valores en eje X - con mejor spacing
+  for (float val : valoresX) {
+    float px = map(val, -3, 7, areaX, areaX + areaWidth);
+    stroke(30);
+    strokeWeight(1.5);
+    line(px, areaY + areaHeight, px, areaY + areaHeight + 8);
+
+    fill(30);
+    textAlign(CENTER);
+    text(nf(val, 0, 0), px, areaY + areaHeight + 25);
+  }
+
+  // Valores en eje Y
+  textAlign(RIGHT);
+  float[] valoresY = {-3, -1, 1, 3, 5, 7};
+  for (float val : valoresY) {
+    float py = map(val, -3, 7, areaY + areaHeight, areaY);
+    stroke(30);
+    strokeWeight(1.5);
+    line(areaX - 8, py, areaX, py);
+
+    fill(30);
+    text(nf(val, 0, 0), areaX - 15, py + 4);
+  }
+}
+
 void despliegaBest(){
   // Dibujar referencia (0,0) en coordenadas matemáticas
-  float refX = map(0, -3, 7, 0, width);  // Coordenada (0,0) mapeada a pantalla
-  float refY = map(0, -3, 7, 0, height);
-  fill(#9400D3);  // Morado
-  ellipse(refX, refY, d, d);
-  
-  // Dibujar mejor global
-  fill(#0000ff);
-  ellipse(gbestx, gbesty, d, d);
-  PFont f = createFont("Arial",16,true);
-  textFont(f,15);
-  fill(#00ff00);
-  text("Best fitness: "+str(gbest)+"\nEvals to best: "+str(evals_to_best)+"\nEvals: "+str(evals)+"\nIteraciones: "+str(iteracion)+"/"+str(max_iteraciones)+"\nTime to best: "+nf(timeToBest, 0, 2)+"s", 10, 20);
+  float refX = map(0, -3, 7, areaX, areaX + areaWidth);
+  float refY = map(0, -3, 7, areaY, areaY + areaHeight);
+  fill(200, 100, 255);  // Púrpura suave
+  stroke(150, 50, 200);
+  strokeWeight(2);
+  ellipse(refX, refY, d + 3, d + 3);
+
+  // Dibujar mejor global con mayor énfasis
+  fill(0, 100, 255);  // Azul
+  stroke(0, 50, 200);
+  strokeWeight(2.5);
+  ellipse(gbestx, gbesty, d + 3, d + 3);
+
+  // Panel de información con fondo oscuro semi-transparente
+  fill(0, 180); // Negro semi-transparente
+  stroke(100);
+  strokeWeight(1);
+  rect(8, 8, 280, 110, 8); // Panel redondeado
+
+  // Texto de información con mejor formato
+  PFont f = createFont("Arial", 13, true);
+  textFont(f);
+  textAlign(LEFT);
+
+  fill(255, 255, 100);
+  text("Best fitness: " + nf(gbest, 0, 3), 18, 28);
+  text("Evals to best: " + evals_to_best, 18, 48);
+  text("Total evals: " + evals, 18, 68);
+  text("Iteraciones: " + iteracion + "/" + max_iteraciones, 18, 88);
+  text("Time to best: " + nf(timeToBest, 0, 2) + "s", 18, 108);
 
 }
 
@@ -227,11 +312,17 @@ int obtenerSiguienteNumero(String ruta) {
 }
 
 void inicializarSimulacion() {
-  
+
   currentSeed = System.currentTimeMillis();
   randomSeed((int)currentSeed);
   noiseSeed((int)random(1000000));
-  
+
+  // Calcular el área drawable considerando márgenes
+  areaX = margen;
+  areaY = margen;
+  areaWidth = width - 2 * margen;
+  areaHeight = height - 2 * margen;
+
   // 1. Crear la carpeta si no existe
   File f = new File(sketchPath(carpeta));
   if (!f.exists()) {
@@ -240,7 +331,7 @@ void inicializarSimulacion() {
 
   // 2. Crear tabla para exportar datos
   InitTable();
-  
+
   //REINICIA VARIABLES
   w = 0.9; // Reiniciar inercia al valor inicial estándar
   gbest = Float.MAX_VALUE;
@@ -253,18 +344,20 @@ void inicializarSimulacion() {
   iteraciones_sin_mejora = 0;
   timeToBest = 0;
   w_inicial = w; // Guardar valor inicial para referencia
-  
-  // 3. Generar el mapa visual (Rastrigin Landscape)
-  surf = createImage(width, height, RGB);
+
+  // 3. Generar el mapa visual (Rastrigin Landscape) dentro del área
+  surf = createImage((int)areaWidth, (int)areaHeight, RGB);
   surf.loadPixels();
-  for (int i = 0; i < width; i++) {
-    for (int j = 0; j < height; j++) {
-      float val = evaluarRastrigin(i, j);
-      float colorPixel = map(val, 0, 150, 255, 0); 
-      surf.pixels[i + j * width] = color(colorPixel);
+  for (int i = 0; i < areaWidth; i++) {
+    for (int j = 0; j < areaHeight; j++) {
+      float screenX = areaX + i;
+      float screenY = areaY + j;
+      float val = evaluarRastrigin(screenX, screenY);
+      float colorPixel = map(val, 0, 150, 255, 0);
+      surf.pixels[i + j * (int)areaWidth] = color(colorPixel);
     }
   }
-  surf.updatePixels(); 
+  surf.updatePixels();
 
   // 4. Inicializar partículas
   fl = new Particle[puntos];
@@ -272,14 +365,15 @@ void inicializarSimulacion() {
     fl[i] = new Particle();
   }
 
-  
-  
+
+
   startTime = millis(); // Guarda el milisegundo de inicio
 }
 
 void setup() {
   size(1024, 512);
   smooth();
+  background(230); // Fondo gris neutro
   inicializarSimulacion();
 }
 
@@ -312,6 +406,9 @@ void draw(){
     inicializarSimulacion();
   }
 
+  // Fondo limpio
+  background(230);
+
   // SOLUCIÓN 2: Orden correcto del ciclo de vida del PSO
   // Paso 1: EVALUAR todas las partículas (actualiza fit, pfit, gbest)
   for (int i = 0; i < puntos; i++) {
@@ -319,10 +416,11 @@ void draw(){
   }
 
   // Paso 2: DISPLAY del estado actual (ya con información actualizada)
-  image(surf, 0, 0);
+  image(surf, areaX, areaY, areaWidth, areaHeight);
   for (int i = 0; i < puntos; i++) {
     fl[i].display();
   }
+  dibujarEjes();
   despliegaBest();
 
   // Paso 3: MOVER todas las partículas usando la información actualizada
