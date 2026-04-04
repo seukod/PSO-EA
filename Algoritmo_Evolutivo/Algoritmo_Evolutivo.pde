@@ -13,8 +13,9 @@ float gbestx, gbesty, gbest = Float.MAX_VALUE;
 int evals = 0, evals_to_best = 0; 
 
 // Parámetros Genéticos
-float mutationRate = 0.4;   // Tasa inicial de mutación (será reducida dinámicamente)
-float mutationForce = 55.0; // Fuerza inicial de mutación (será reducida dinámicamente)
+float crossoverRate = 0.8;  // Tasa de cruzamiento (80%)
+float mutationRate = 0.15;   // Tasa inicial de mutación (será reducida dinámicamente)
+float mutationForce = 30.0; // Fuerza inicial de mutación (será reducida dinámicamente)
 int tournamentSize = 5;     // Presión selectiva
 
 // Decaimiento dinámico de mutación (cooling schedule)
@@ -31,6 +32,19 @@ float gbest_anterior = Float.MAX_VALUE;
 
 String nombreArchivo;
 String carpeta = "registros/";
+
+// ===============================================================
+// VARIABLES PARA GRÁFICOS Y VISUALIZACIÓN (HD - 1.25x)
+// ===============================================================
+ArrayList<Float> fitnessHistory; // Historial de fitness
+ArrayList<Float> diversityHistory; // Historial de diversidad
+boolean mostrarMapaCalor = false; // Toggle para mapa de calor
+int simWidth = 1024; // Ancho de la simulación
+int simHeight = 512; // Alto de la simulación
+int graphWidth = 350; // Ancho de la sección de gráficos
+int buttonAreaHeight = 50; // Altura del área de botones
+int buttonW = 140; // Ancho del botón
+int buttonH = 32; // Alto del botón
 
 // ===============================================================
 // VARIABLES DE SIMULACIÓN
@@ -86,11 +100,146 @@ void guardarDatos() {
 }
 
 // ===============================================================
+// FUNCIONES PARA MAPA DE CALOR Y GRAFICOS
+// ===============================================================
+void generarSuperficie() {
+  surf = createImage(simWidth, simHeight, RGB);
+  surf.loadPixels();
+
+  for (int i = 0; i < simWidth; i++) {
+    for (int j = 0; j < simHeight; j++) {
+      float val = evaluarRastrigin(i, j);
+
+      if (mostrarMapaCalor) {
+        float normalizado = map(val, 0, 150, 0, 1);
+        color c = lerpColor(color(0, 0, 255), color(255, 0, 0), normalizado);
+        surf.pixels[i + j * simWidth] = c;
+      } else {
+        float colorPixel = map(val, 0, 150, 255, 0);
+        surf.pixels[i + j * simWidth] = color(colorPixel);
+      }
+    }
+  }
+  surf.updatePixels();
+}
+
+float calcularDiversidad() {
+  float centroX = 0, centroY = 0;
+  for (int i = 0; i < puntos; i++) {
+    centroX += pop[i].x;
+    centroY += pop[i].y;
+  }
+  centroX /= puntos;
+  centroY /= puntos;
+
+  float distanciaTotal = 0;
+  for (int i = 0; i < puntos; i++) {
+    float dx = pop[i].x - centroX;
+    float dy = pop[i].y - centroY;
+    distanciaTotal += sqrt(dx*dx + dy*dy);
+  }
+  return distanciaTotal / puntos;
+}
+
+void dibujarGraficos() {
+  int graphX = simWidth + 15;
+  int graph1Y = 15;
+  int graph2Y = simHeight / 2 + 15;
+  int graphH = simHeight / 2 - 30;
+  int graphW = graphWidth - 30;
+
+  fill(240);
+  noStroke();
+  rect(simWidth, 0, graphWidth, simHeight);
+
+  dibujarGraficoConvergencia(graphX, graph1Y, graphW, graphH);
+  dibujarGraficoDiversidad(graphX, graph2Y, graphW, graphH);
+}
+
+void dibujarGraficoConvergencia(int x, int y, int w, int h) {
+  stroke(0);
+  strokeWeight(2);
+  noFill();
+  rect(x, y, w, h);
+
+  fill(0);
+  textAlign(LEFT);
+  textSize(14);
+  text("Convergencia (Fitness)", x + 10, y + 22);
+
+  if (fitnessHistory.size() < 2) return;
+
+  float minFit = Float.MAX_VALUE;
+  float maxFit = Float.MIN_VALUE;
+  for (Float f : fitnessHistory) {
+    if (f < minFit) minFit = f;
+    if (f > maxFit) maxFit = f;
+  }
+  if (maxFit - minFit < 0.001) maxFit = minFit + 1;
+
+  stroke(0, 100, 255);
+  strokeWeight(2);
+  noFill();
+  beginShape();
+  for (int i = 0; i < fitnessHistory.size(); i++) {
+    float px = map(i, 0, max(fitnessHistory.size() - 1, 1), x + 10, x + w - 10);
+    float py = map(fitnessHistory.get(i), minFit, maxFit, y + h - 10, y + 35);
+    vertex(px, py);
+  }
+  endShape();
+
+  fill(0);
+  textAlign(RIGHT);
+  textSize(11);
+  text(nf(maxFit, 0, 2), x + w - 10, y + 40);
+  text(nf(minFit, 0, 2), x + w - 10, y + h - 12);
+}
+
+void dibujarGraficoDiversidad(int x, int y, int w, int h) {
+  stroke(0);
+  strokeWeight(2);
+  noFill();
+  rect(x, y, w, h);
+
+  fill(0);
+  textAlign(LEFT);
+  textSize(14);
+  text("Diversidad (Dispersión)", x + 10, y + 22);
+
+  if (diversityHistory.size() < 2) return;
+
+  float minDiv = Float.MAX_VALUE;
+  float maxDiv = Float.MIN_VALUE;
+  for (Float d : diversityHistory) {
+    if (d < minDiv) minDiv = d;
+    if (d > maxDiv) maxDiv = d;
+  }
+  if (maxDiv - minDiv < 0.001) maxDiv = minDiv + 1;
+
+  stroke(255, 100, 0);
+  strokeWeight(2);
+  noFill();
+  beginShape();
+  for (int i = 0; i < diversityHistory.size(); i++) {
+    float px = map(i, 0, max(diversityHistory.size() - 1, 1), x + 10, x + w - 10);
+    float py = map(diversityHistory.get(i), minDiv, maxDiv, y + h - 10, y + 35);
+    vertex(px, py);
+  }
+  endShape();
+
+  fill(0);
+  textAlign(RIGHT);
+  textSize(11);
+  text(nf(maxDiv, 0, 2), x + w - 10, y + 40);
+  text(nf(minDiv, 0, 2), x + w - 10, y + h - 12);
+}
+
+// ===============================================================
 // FUNCIÓN DE RASTRIGIN 2D
 // ===============================================================
 float evaluarRastrigin(float screenX, float screenY) {
-  float x = map(screenX, 0, width, -3, 7);
-  float y = map(screenY, 0, height, -3, 7);
+  float x = map(screenX, 0, simWidth, -3, 7);
+  float y = map(screenY, 0, simHeight, -3, 7);
   float termX = (x * x) - 10 * cos(TWO_PI * x);
   float termY = (y * y) - 10 * cos(TWO_PI * y);
   return 20 + termX + termY; 
@@ -161,8 +310,8 @@ Individual cruzar(Individual p1, Individual p2) {
   child.y = random(min_y - alpha * range_y, max_y + alpha * range_y);
   
   // Mantener dentro de límites
-  child.x = constrain(child.x, 0, width);
-  child.y = constrain(child.y, 0, height);
+  child.x = constrain(child.x, 0, simWidth);
+  child.y = constrain(child.y, 0, simHeight);
   
   return child;
 }
@@ -175,14 +324,15 @@ void mutar(Individual ind) {
     ind.y += random(-mutationForce, mutationForce);
     
     // Mantener dentro de los límites
-    ind.x = constrain(ind.x, 0, width);
-    ind.y = constrain(ind.y, 0, height);
+    ind.x = constrain(ind.x, 0, simWidth);
+    ind.y = constrain(ind.y, 0, simHeight);
   }
 }
 
 void evolucionar() {
   Individual[] newPop = new Individual[puntos];
   
+  /* --- Elitismo desactivado temporalmente ---
   // Elitismo: Guardar al mejor pero CON MUTACIÓN para diversidad
   Individual elite = new Individual();
   elite.x = gbestx;
@@ -194,18 +344,30 @@ void evolucionar() {
     if (random(1) < mutationRate * 0.5) {
       elite.x += random(-mutationForce * 0.3, mutationForce * 0.3);
       elite.y += random(-mutationForce * 0.3, mutationForce * 0.3);
-      elite.x = constrain(elite.x, 0, width);
-      elite.y = constrain(elite.y, 0, height);
+      elite.x = constrain(elite.x, 0, simWidth);
+      elite.y = constrain(elite.y, 0, simHeight);
       elite.evaluate();
     }
   }
   newPop[0] = elite;
+  */
   
-  // Generar el resto de la población
-  for (int i = 1; i < puntos; i++) {
+  // Generar toda la población (se inicia de 0 al quitar elitismo)
+  for (int i = 0; i < puntos; i++) {
     Individual padre1 = torneo();
-    Individual padre2 = torneo();
-    Individual hijo = cruzar(padre1, padre2);
+    Individual hijo;
+    
+    // Aplicar cruzamiento con probabilidad
+    if (random(1) < crossoverRate) {
+      Individual padre2 = torneo();
+      hijo = cruzar(padre1, padre2);
+    } else {
+      // Si no se cruza, el hijo es un clon del padre1
+      hijo = new Individual();
+      hijo.x = padre1.x;
+      hijo.y = padre1.y;
+    }
+    
     mutar(hijo);
     newPop[i] = hijo;
   }
@@ -234,15 +396,10 @@ void inicializarSimulacion() {
   iteraciones_sin_mejora = 0;
   timeToBest = 0;
   
-  surf = createImage(width, height, RGB);
-  surf.loadPixels();
-  for (int i = 0; i < width; i++) {
-    for (int j = 0; j < height; j++) {
-      float val = evaluarRastrigin(i, j);
-      surf.pixels[i + j * width] = color(map(val, 0, 150, 255, 0));
-    }
-  }
-  surf.updatePixels(); 
+  fitnessHistory = new ArrayList<Float>();
+  diversityHistory = new ArrayList<Float>();
+
+  generarSuperficie();
 
   pop = new Individual[puntos];
   for (int i = 0; i < puntos; i++) {
@@ -256,6 +413,7 @@ void inicializarSimulacion() {
   println("==================================================");
   println("INICIANDO SIMULACIÓN #" + (simulacion_count + 1) + " de 30");
   println(">>> CONFIGURACIÓN DE PARÁMETROS:");
+  println("  - Tasa de Cruzamiento: " + crossoverRate);
   println("  - Tasa de Mutación: " + mutationRate);
   println("  - Fuerza de Mutación: " + mutationForce + " píxeles");
   println("  - Tamaño del Torneo: " + tournamentSize + " individuos");
@@ -266,14 +424,16 @@ void inicializarSimulacion() {
 void despliegaBest() {
   fill(#0000ff);
   ellipse(gbestx, gbesty, d, d);
+  textAlign(LEFT, BASELINE);
   fill(#00ff00);
   textSize(15);
-  text("EA Best fitness: " + str(gbest) + "\nEvals to best: " + str(evals_to_best) + "\nIteraciones: " + str(iteracion) + "\nSin mejora: " + str(iteraciones_sin_mejora) + "/" + str(patience) + "\nTime to best: " + nf(timeToBest, 0, 2) + "s" + "\nMut Rate: " + nf(mutationRate, 0, 3) + " | Mut Force: " + nf(mutationForce, 0, 1), 10, 20);
+  text("EA Best fitness: " + str(gbest) + "\nEvals to best: " + str(evals_to_best) + "\nIteraciones: " + str(iteracion) + "\nSin mejora: " + str(iteraciones_sin_mejora) + "/" + str(patience) + "\nTime to best: " + nf(timeToBest, 0, 2) + "s" + "\nMut Rate: " + nf(mutationRate, 0, 3) + " | Mut Force: " + nf(mutationForce, 0, 1), 15, 25);
 }
 
 void setup() {
-  size(1024, 512);
+  size(1374, 562, P2D);
   smooth();
+  frameRate(20);
   inicializarSimulacion();
 }
 
@@ -310,6 +470,8 @@ void draw() {
   
   // Proceso evolutivo por cada frame (1 generación)
   evolucionar();
+  dibujarGraficos();
+  dibujarAreaBotones();
   for (int i = 0; i < puntos; i++) {
     pop[i].evaluate();
   }
@@ -322,6 +484,9 @@ void draw() {
     iteraciones_sin_mejora++;
   }
   
+  fitnessHistory.add(gbest);
+  diversityHistory.add(calcularDiversidad());
+
   guardarDatos();
   
   // Decaimiento dinámico de mutación: balance exploración/explotación
@@ -330,5 +495,72 @@ void draw() {
   }
   if (mutationForce > mutationForceMin) {
     mutationForce *= mutationDecay;
+  }
+}
+
+// ===============================================================
+// INTERACCIÓN Y CONTROLES (UI)
+// ===============================================================
+void dibujarAreaBotones() {
+  fill(220);
+  noStroke();
+  rect(0, simHeight, simWidth + graphWidth, buttonAreaHeight);
+
+  int buttonY = simHeight + 10;
+  int button1X = 20;
+  int button2X = button1X + buttonW + 20;
+
+  boolean mouseOverButton1 = mouseX > button1X && mouseX < button1X + buttonW &&
+                             mouseY > buttonY && mouseY < buttonY + buttonH;
+
+  stroke(0);
+  strokeWeight(2);
+  if (mouseOverButton1) fill(180); else fill(255);
+  rect(button1X, buttonY, buttonW, buttonH, 5);
+
+  fill(0);
+  textAlign(CENTER, CENTER);
+  textSize(13);
+  if (mostrarMapaCalor) text("Vista Normal", button1X + buttonW/2, buttonY + buttonH/2);
+  else text("Mapa de Calor", button1X + buttonW/2, buttonY + buttonH/2);
+
+  boolean mouseOverButton2 = mouseX > button2X && mouseX < button2X + buttonW &&
+                             mouseY > buttonY && mouseY < buttonY + buttonH;
+
+  stroke(0);
+  strokeWeight(2);
+  if (mouseOverButton2) fill(180); else fill(255);
+  rect(button2X, buttonY, buttonW, buttonH, 5);
+
+  fill(0);
+  textAlign(CENTER, CENTER);
+  textSize(13);
+  text("Reiniciar", button2X + buttonW/2, buttonY + buttonH/2);
+}
+
+void mousePressed() {
+  int buttonY = simHeight + 12;
+  int button1X = 20;
+  int button2X = button1X + buttonW + 20;
+
+  if (mouseX > button1X && mouseX < button1X + buttonW &&
+      mouseY > buttonY && mouseY < buttonY + buttonH) {
+    mostrarMapaCalor = !mostrarMapaCalor;
+    generarSuperficie();
+  }
+
+  if (mouseX > button2X && mouseX < button2X + buttonW &&
+      mouseY > buttonY && mouseY < buttonY + buttonH) {
+    println("=== Reiniciando simulación EA ===");
+    inicializarSimulacion();
+  }
+}
+
+void keyPressed(){
+  // Presiona 's' para guardar manualmente en cualquier momento
+  if (key == 's' || key == 'S') {
+    nombreArchivo = carpeta + "ea_manual_seed_" + currentSeed + ".csv";
+    saveTable(table, nombreArchivo);
+    println(">>> Datos guardados manualmente en: " + nombreArchivo);
   }
 }

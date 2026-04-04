@@ -82,9 +82,10 @@ def graficar_convergencia(dfs_alineados, output_path):
     # Promediar el fitness poblacional (dividir por cantidad de ejecuciones)
     fitness_pop_promedio = fitness_pop_promedio / len(dfs_alineados)
     
-    # Reemplazar ceros exactos con un valor muy pequeño
-    gbest_mejor = np.where(gbest_mejor == 0, 1e-4, gbest_mejor)
-    fitness_pop_promedio = np.where(fitness_pop_promedio == 0, 1e-4, fitness_pop_promedio)
+    # Reemplazar ceros exactos con un valor muy pequeño (para escala logarítmica)
+    VALOR_MINIMO = 1e-4
+    gbest_mejor = np.where(gbest_mejor <= VALOR_MINIMO, VALOR_MINIMO, gbest_mejor)
+    fitness_pop_promedio = np.where(fitness_pop_promedio <= VALOR_MINIMO, VALOR_MINIMO, fitness_pop_promedio)
     
     iteraciones = np.arange(len(gbest_mejor))
     
@@ -108,7 +109,7 @@ def graficar_convergencia(dfs_alineados, output_path):
     plt.savefig(output_lineal, dpi=300, bbox_inches='tight')
     print(f"✓ Gráfico guardado: {output_lineal}")
     plt.close()
-    
+
     # =========== GRÁFICO 2: ESCALA LOGARÍTMICA ===========
     fig, ax = plt.subplots(figsize=(12, 7))
     
@@ -120,7 +121,11 @@ def graficar_convergencia(dfs_alineados, output_path):
     ax.set_ylabel("Fitness (escala logarítmica)", fontsize=12, fontweight='bold')
     ax.set_title("Convergencia EA - Caso Promedio vs Mejor Caso (Escala Logarítmica)", fontsize=14, fontweight='bold', pad=15)
     ax.set_yscale('log')
-    ax.set_ylim(0.001, fitness_pop_promedio.max() * 10)
+    
+    # Bajar el límite inferior del eje Y un nivel más abajo (dividido en 10) 
+    # para que la línea roja flote sobre el borde y se vea completa y destacada
+    ax.set_ylim(VALOR_MINIMO / 10, fitness_pop_promedio.max() * 5)
+    
     ax.grid(True, alpha=0.3, linestyle='--', which='both')
     ax.legend(fontsize=11, loc='best', framealpha=0.95)
     ax.set_xlim(left=0)
@@ -131,7 +136,6 @@ def graficar_convergencia(dfs_alineados, output_path):
     plt.savefig(output_log, dpi=300, bbox_inches='tight')
     print(f"✓ Gráfico guardado: {output_log}")
     plt.close()
-
 
 def imprimir_resumen(dfs_alineados):
     """Imprime un resumen de los resultados."""
