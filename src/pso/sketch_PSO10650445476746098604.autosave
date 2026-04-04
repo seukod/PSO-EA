@@ -27,8 +27,8 @@ String carpeta = "registros/";
 ArrayList<Float> fitnessHistory; // Historial de fitness
 ArrayList<Float> diversityHistory; // Historial de diversidad
 boolean mostrarMapaCalor = false; // Toggle para mapa de calor
-int simWidth = 1024; // Ancho de la simulación
-int simHeight = 512; // Alto de la simulación
+int simWidth = 800; // Ancho de la simulación
+int simHeight = 400; // Alto de la simulación
 int graphWidth = 350; // Ancho de la sección de gráficos
 int buttonAreaHeight = 50; // Altura del área de botones
 int buttonW = 140; // Ancho del botón
@@ -340,8 +340,8 @@ class Particle{
   void display(){
     color c = surf.get(int(x),int(y));
     fill(c);
-    stroke(#ff0000);
     ellipse (x,y,d,d);
+    stroke(#ff0000);
     line(x,y,x-10*vx,y-10*vy);
   }
 } 
@@ -349,7 +349,6 @@ class Particle{
 void despliegaBest(){
   fill(#0000ff);
   ellipse(gbestx,gbesty,d,d);
-  textAlign(LEFT, BASELINE);
   PFont f = createFont("Arial",18,true);
   textFont(f,18);
   fill(#00ff00);
@@ -415,7 +414,7 @@ void inicializarSimulacion() {
 }
 
 void setup() {
-  size(1374, 562, P2D); // 1280 (simulación) + 500 (gráficos), altura: 640 + 50 (botones)
+  size(1150, 450); // Ancho: 800+350. Alto: 400+50
   smooth();
   inicializarSimulacion();
 }

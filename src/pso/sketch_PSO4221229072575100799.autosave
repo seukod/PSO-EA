@@ -340,8 +340,8 @@ class Particle{
   void display(){
     color c = surf.get(int(x),int(y));
     fill(c);
-    stroke(#ff0000);
     ellipse (x,y,d,d);
+    stroke(#ff0000);
     line(x,y,x-10*vx,y-10*vy);
   }
 } 
@@ -415,8 +415,9 @@ void inicializarSimulacion() {
 }
 
 void setup() {
-  size(1374, 562, P2D); // 1280 (simulación) + 500 (gráficos), altura: 640 + 50 (botones)
-  smooth();
+  size(1374, 562); // 1280 (simulación) + 500 (gráficos), altura: 640 + 50 (botones)
+  pixelDensity(displayDensity());
+  smooth(8);
   inicializarSimulacion();
 }
 

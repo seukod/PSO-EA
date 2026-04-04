@@ -24,11 +24,11 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 # CONFIGURACIÓN
 # ============================================================================
-RUTA_REGISTROS = "Algoritmo_Evolutivo/registros"
-PATRON_ARCHIVOS = "ea_tabla*.csv"
+RUTA_REGISTROS = "../src/ea/registros"  # Ruta corregida
+PATRON_ARCHIVOS = "ea_manual_seed_*.csv"
 SALIDA_STATS = "ea_estadisticas_resumen.csv"
-SALIDA_CONV = "analisis_ea_convergencia.png"
-SALIDA_VAR = "analisis_ea_variabilidad.png"
+SALIDA_CONV = "analisis_ea_convergencia_manual.png"
+SALIDA_VAR = "analisis_ea_variabilidad_manual.png"
 
 # ============================================================================
 # FUNCIONES
