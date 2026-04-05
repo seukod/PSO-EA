@@ -332,7 +332,7 @@ void mutar(Individual ind) {
 void evolucionar() {
   Individual[] newPop = new Individual[puntos];
   
-  /* --- Elitismo desactivado temporalmente ---
+  
   // Elitismo: Guardar al mejor pero CON MUTACIÓN para diversidad
   Individual elite = new Individual();
   elite.x = gbestx;
@@ -350,7 +350,7 @@ void evolucionar() {
     }
   }
   newPop[0] = elite;
-  */
+  
   
   // Generar toda la población (se inicia de 0 al quitar elitismo)
   for (int i = 0; i < puntos; i++) {
